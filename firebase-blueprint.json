@@ -1,0 +1,166 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User account profile storing display name and account role (pencari or pemilik).",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "displayName": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "role": { "type": "string", "enum": ["pencari", "pemilik"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "displayName", "role", "createdAt", "updatedAt"]
+    },
+    "UserPrivateInfo": {
+      "title": "UserPrivateInfo",
+      "description": "Isolated PII contact information for a user.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "email": { "type": "string", "maxLength": 200 },
+        "whatsapp": { "type": "string", "maxLength": 30 },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "whatsapp", "updatedAt"]
+    },
+    "KosProperty": {
+      "title": "KosProperty",
+      "description": "Boarding house listing managed by a kos owner in East Surabaya.",
+      "type": "object",
+      "properties": {
+        "ownerUid": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "ownerName": { "type": "string", "minLength": 2, "maxLength": 100 },
+        "ownerWhatsapp": { "type": "string", "minLength": 8, "maxLength": 25 },
+        "name": { "type": "string", "minLength": 3, "maxLength": 120 },
+        "area": { "type": "string", "enum": ["Sekitar UPN", "Rungkut", "Medokan Ayu", "Gunung Anyar"] },
+        "address": { "type": "string", "minLength": 5, "maxLength": 300 },
+        "description": { "type": "string", "minLength": 10, "maxLength": 2000 },
+        "kosType": { "type": "string", "enum": ["putra", "putri", "campur"] },
+        "priceMonthly": { "type": "number" },
+        "facilities": { "type": "array", "description": "Up to 10 facility keys" },
+        "photos": { "type": "array", "description": "Up to 8 photo URLs" },
+        "latitude": { "type": "number" },
+        "longitude": { "type": "number" },
+        "totalRooms": { "type": "number" },
+        "availableRooms": { "type": "number" },
+        "occupiedRooms": { "type": "number" },
+        "maintenanceRooms": { "type": "number" },
+        "availabilityStatus": { "type": "string", "enum": ["tersedia", "penuh", "perlu_konfirmasi"] },
+        "isDemo": { "type": "boolean" },
+        "isPromoted": { "type": "boolean" },
+        "lastStatusUpdatedAt": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "ownerUid", "ownerName", "ownerWhatsapp", "name", "area", "address",
+        "description", "kosType", "priceMonthly", "facilities", "photos",
+        "latitude", "longitude", "totalRooms", "availableRooms", "occupiedRooms",
+        "maintenanceRooms", "availabilityStatus", "isDemo", "isPromoted",
+        "lastStatusUpdatedAt", "createdAt", "updatedAt"
+      ]
+    },
+    "KosRoom": {
+      "title": "KosRoom",
+      "description": "Individual room unit inside a kos property with explicit status.",
+      "type": "object",
+      "properties": {
+        "kosId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "ownerUid": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "roomNumber": { "type": "string", "minLength": 1, "maxLength": 40 },
+        "floor": { "type": "string", "minLength": 1, "maxLength": 40 },
+        "priceMonthly": { "type": "number" },
+        "status": { "type": "string", "enum": ["tersedia", "terisi", "perlu_perbaikan"] },
+        "notes": { "type": "string", "maxLength": 200 },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["kosId", "ownerUid", "roomNumber", "floor", "priceMonthly", "status", "notes", "updatedAt"]
+    },
+    "StatusHistory": {
+      "title": "StatusHistory",
+      "description": "Audit log of room or kos availability updates by the owner.",
+      "type": "object",
+      "properties": {
+        "kosId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "ownerUid": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "action": { "type": "string", "minLength": 3, "maxLength": 200 },
+        "roomNumber": { "type": "string", "maxLength": 40 },
+        "previousStatus": { "type": "string", "maxLength": 40 },
+        "newStatus": { "type": "string", "maxLength": 40 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["kosId", "ownerUid", "action", "roomNumber", "previousStatus", "newStatus", "createdAt"]
+    },
+    "SurveyRequest": {
+      "title": "SurveyRequest",
+      "description": "Visit/survey appointment scheduled by a kos seeker.",
+      "type": "object",
+      "properties": {
+        "kosId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "kosName": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "ownerUid": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "seekerUid": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "seekerName": { "type": "string", "minLength": 2, "maxLength": 100 },
+        "seekerWhatsapp": { "type": "string", "minLength": 8, "maxLength": 25 },
+        "visitDate": { "type": "string", "minLength": 8, "maxLength": 20 },
+        "visitTime": { "type": "string", "minLength": 3, "maxLength": 30 },
+        "notes": { "type": "string", "maxLength": 300 },
+        "status": { "type": "string", "enum": ["menunggu", "disetujui", "selesai", "dibatalkan"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "kosId", "kosName", "ownerUid", "seekerUid", "seekerName",
+        "seekerWhatsapp", "visitDate", "visitTime", "notes", "status",
+        "createdAt", "updatedAt"
+      ]
+    },
+    "FavoriteKos": {
+      "title": "FavoriteKos",
+      "description": "Saved kos bookmark for a kos seeker.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "kosId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "kosName": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "kosArea": { "type": "string", "maxLength": 60 },
+        "kosPrice": { "type": "number" },
+        "kosPhoto": { "type": "string", "maxLength": 500 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "kosId", "kosName", "kosArea", "kosPrice", "kosPhoto", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "User account role and public display name."
+    },
+    "/users/{userId}/private/info": {
+      "schema": { "$ref": "#/entities/UserPrivateInfo" },
+      "description": "User private PII (email and WhatsApp number)."
+    },
+    "/kos/{kosId}": {
+      "schema": { "$ref": "#/entities/KosProperty" },
+      "description": "Kos properties catalog and availability summaries."
+    },
+    "/kos/{kosId}/rooms/{roomId}": {
+      "schema": { "$ref": "#/entities/KosRoom" },
+      "description": "Individual rooms inside a kos property."
+    },
+    "/kos/{kosId}/history/{historyId}": {
+      "schema": { "$ref": "#/entities/StatusHistory" },
+      "description": "Owner room status update history log."
+    },
+    "/surveys/{surveyId}": {
+      "schema": { "$ref": "#/entities/SurveyRequest" },
+      "description": "Scheduled survey appointments between seekers and owners."
+    },
+    "/favorites/{favoriteId}": {
+      "schema": { "$ref": "#/entities/FavoriteKos" },
+      "description": "Saved kos bookmarks per user."
+    }
+  }
+}

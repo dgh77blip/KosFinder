@@ -1,0 +1,6 @@
+{
+  "name": "KosFinder",
+  "description": "Temukan Kos yang Tepat, Tanpa Ribet. Platform pencarian kamar kos dan pengelolaan status ketersediaan kamar di Surabaya Timur.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

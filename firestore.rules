@@ -1,0 +1,343 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global Safety Net: Deny all by default
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Primitive Helpers ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isOwnerUid(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    // --- Validation Helpers ---
+    function isValidUserProfile(data) {
+      return data.keys().hasAll(['uid', 'displayName', 'role', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['uid', 'displayName', 'role', 'createdAt', 'updatedAt'])
+        && isValidId(data.uid)
+        && data.uid == request.auth.uid
+        && data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 100
+        && data.role in ['pencari', 'pemilik']
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidUserPrivateInfo(data) {
+      return data.keys().hasAll(['uid', 'email', 'whatsapp', 'updatedAt'])
+        && data.keys().hasOnly(['uid', 'email', 'whatsapp', 'updatedAt'])
+        && isValidId(data.uid)
+        && data.uid == request.auth.uid
+        && data.email is string && data.email.size() <= 200
+        && data.whatsapp is string && data.whatsapp.size() <= 30
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidKos(data) {
+      return data.keys().hasAll([
+          'ownerUid', 'ownerName', 'ownerWhatsapp', 'name', 'area', 'address',
+          'description', 'kosType', 'priceMonthly', 'facilities', 'photos',
+          'latitude', 'longitude', 'totalRooms', 'availableRooms', 'occupiedRooms',
+          'maintenanceRooms', 'availabilityStatus', 'isDemo', 'isPromoted',
+          'lastStatusUpdatedAt', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'ownerUid', 'ownerName', 'ownerWhatsapp', 'name', 'area', 'address',
+          'description', 'kosType', 'priceMonthly', 'facilities', 'photos',
+          'latitude', 'longitude', 'totalRooms', 'availableRooms', 'occupiedRooms',
+          'maintenanceRooms', 'availabilityStatus', 'isDemo', 'isPromoted',
+          'lastStatusUpdatedAt', 'createdAt', 'updatedAt'
+        ])
+        && isValidId(data.ownerUid)
+        && data.ownerUid == request.auth.uid
+        && data.ownerName is string && data.ownerName.size() >= 2 && data.ownerName.size() <= 100
+        && data.ownerWhatsapp is string && data.ownerWhatsapp.size() >= 8 && data.ownerWhatsapp.size() <= 25
+        && data.name is string && data.name.size() >= 3 && data.name.size() <= 120
+        && data.area in ['Sekitar UPN', 'Rungkut', 'Medokan Ayu', 'Gunung Anyar']
+        && data.address is string && data.address.size() >= 5 && data.address.size() <= 300
+        && data.description is string && data.description.size() >= 10 && data.description.size() <= 2000
+        && data.kosType in ['putra', 'putri', 'campur']
+        && data.priceMonthly is number && data.priceMonthly >= 100000 && data.priceMonthly <= 50000000
+        && data.facilities is list && data.facilities.size() <= 10
+        && (data.facilities.size() == 0 || data.facilities[0] is string)
+        && data.photos is list && data.photos.size() >= 1 && data.photos.size() <= 6
+        && data.photos[0] is string && data.photos[0].size() <= 150000
+        && data.latitude is number && data.latitude >= -90 && data.latitude <= 90
+        && data.longitude is number && data.longitude >= -180 && data.longitude <= 180
+        && data.totalRooms is number && data.totalRooms >= 1 && data.totalRooms <= 200
+        && data.availableRooms is number && data.availableRooms >= 0 && data.availableRooms <= 200
+        && data.occupiedRooms is number && data.occupiedRooms >= 0 && data.occupiedRooms <= 200
+        && data.maintenanceRooms is number && data.maintenanceRooms >= 0 && data.maintenanceRooms <= 200
+        && data.availabilityStatus in ['tersedia', 'penuh', 'perlu_konfirmasi']
+        && data.isDemo is bool && data.isDemo == false
+        && data.isPromoted is bool
+        && data.lastStatusUpdatedAt is timestamp
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidRoom(data, kosId) {
+      return data.keys().hasAll(['kosId', 'ownerUid', 'roomNumber', 'floor', 'priceMonthly', 'status', 'notes', 'updatedAt'])
+        && data.keys().hasOnly(['kosId', 'ownerUid', 'roomNumber', 'floor', 'priceMonthly', 'status', 'notes', 'updatedAt'])
+        && isValidId(data.kosId)
+        && data.kosId == kosId
+        && isValidId(data.ownerUid)
+        && data.ownerUid == request.auth.uid
+        && data.roomNumber is string && data.roomNumber.size() >= 1 && data.roomNumber.size() <= 40
+        && data.floor is string && data.floor.size() >= 1 && data.floor.size() <= 40
+        && data.priceMonthly is number && data.priceMonthly >= 100000 && data.priceMonthly <= 50000000
+        && data.status in ['tersedia', 'terisi', 'perlu_perbaikan']
+        && data.notes is string && data.notes.size() <= 200
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidHistory(data, kosId) {
+      return data.keys().hasAll(['kosId', 'ownerUid', 'action', 'roomNumber', 'previousStatus', 'newStatus', 'createdAt'])
+        && data.keys().hasOnly(['kosId', 'ownerUid', 'action', 'roomNumber', 'previousStatus', 'newStatus', 'createdAt'])
+        && isValidId(data.kosId)
+        && data.kosId == kosId
+        && isValidId(data.ownerUid)
+        && data.ownerUid == request.auth.uid
+        && data.action is string && data.action.size() >= 3 && data.action.size() <= 200
+        && data.roomNumber is string && data.roomNumber.size() <= 40
+        && data.previousStatus is string && data.previousStatus.size() <= 40
+        && data.newStatus is string && data.newStatus.size() <= 40
+        && data.createdAt is timestamp;
+    }
+
+    function isValidSurvey(data) {
+      return data.keys().hasAll([
+          'kosId', 'kosName', 'ownerUid', 'seekerUid', 'seekerName',
+          'seekerWhatsapp', 'visitDate', 'visitTime', 'notes', 'status',
+          'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'kosId', 'kosName', 'ownerUid', 'seekerUid', 'seekerName',
+          'seekerWhatsapp', 'visitDate', 'visitTime', 'notes', 'status',
+          'createdAt', 'updatedAt'
+        ])
+        && isValidId(data.kosId)
+        && data.kosName is string && data.kosName.size() >= 2 && data.kosName.size() <= 120
+        && isValidId(data.ownerUid)
+        && isValidId(data.seekerUid)
+        && data.seekerName is string && data.seekerName.size() >= 2 && data.seekerName.size() <= 100
+        && data.seekerWhatsapp is string && data.seekerWhatsapp.size() >= 8 && data.seekerWhatsapp.size() <= 25
+        && data.visitDate is string && data.visitDate.size() >= 8 && data.visitDate.size() <= 20
+        && data.visitTime is string && data.visitTime.size() >= 3 && data.visitTime.size() <= 30
+        && data.notes is string && data.notes.size() <= 300
+        && data.status in ['menunggu', 'disetujui', 'selesai', 'dibatalkan']
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidFavorite(data) {
+      return data.keys().hasAll(['uid', 'kosId', 'kosName', 'kosArea', 'kosPrice', 'kosPhoto', 'createdAt'])
+        && data.keys().hasOnly(['uid', 'kosId', 'kosName', 'kosArea', 'kosPrice', 'kosPhoto', 'createdAt'])
+        && isValidId(data.uid)
+        && data.uid == request.auth.uid
+        && isValidId(data.kosId)
+        && data.kosName is string && data.kosName.size() >= 2 && data.kosName.size() <= 120
+        && data.kosArea is string && data.kosArea.size() <= 60
+        && data.kosPrice is number && data.kosPrice >= 0
+        && data.kosPhoto is string && data.kosPhoto.size() <= 150000
+        && data.createdAt is timestamp;
+    }
+
+    // --- Collection Rules ---
+
+    match /users/{userId} {
+      allow get: if isValidId(userId) && isOwnerUid(userId);
+      allow list: if false;
+      allow create: if isVerifiedUser()
+        && isValidId(userId)
+        && isOwnerUid(userId)
+        && isValidUserProfile(incoming())
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isVerifiedUser()
+        && isValidId(userId)
+        && isOwnerUid(userId)
+        && isValidUserProfile(incoming())
+        && incoming().uid == existing().uid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'role', 'updatedAt']);
+      allow delete: if false;
+
+      match /private/info {
+        allow get: if isValidId(userId) && isOwnerUid(userId);
+        allow list: if false;
+        allow create: if isVerifiedUser()
+          && isValidId(userId)
+          && isOwnerUid(userId)
+          && isValidUserPrivateInfo(incoming())
+          && incoming().updatedAt == request.time;
+        allow update: if isVerifiedUser()
+          && isValidId(userId)
+          && isOwnerUid(userId)
+          && isValidUserPrivateInfo(incoming())
+          && incoming().uid == existing().uid
+          && incoming().updatedAt == request.time
+          && incoming().diff(existing()).affectedKeys().hasOnly(['email', 'whatsapp', 'updatedAt']);
+        allow delete: if false;
+      }
+    }
+
+    match /kos/{kosId} {
+      allow get: if isValidId(kosId);
+      allow list: if true;
+      allow create: if isVerifiedUser()
+        && isValidId(kosId)
+        && isValidKos(incoming())
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && incoming().lastStatusUpdatedAt == request.time;
+      allow update: if isVerifiedUser()
+        && isValidId(kosId)
+        && isValidKos(incoming())
+        && existing().ownerUid == request.auth.uid
+        && incoming().ownerUid == existing().ownerUid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          // Action 1: Edit property info & details
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'ownerName', 'ownerWhatsapp', 'name', 'area', 'address',
+            'description', 'kosType', 'priceMonthly', 'facilities', 'photos',
+            'latitude', 'longitude', 'isPromoted', 'updatedAt'
+          ])
+          ||
+          // Action 2: Sync room availability summary
+          (
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'totalRooms', 'availableRooms', 'occupiedRooms',
+              'maintenanceRooms', 'availabilityStatus', 'lastStatusUpdatedAt', 'updatedAt'
+            ])
+            && incoming().lastStatusUpdatedAt == request.time
+          )
+          ||
+          // Action 3: Set manual confirmation status
+          (
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'availabilityStatus', 'lastStatusUpdatedAt', 'updatedAt'
+            ])
+            && incoming().lastStatusUpdatedAt == request.time
+          )
+        );
+      allow delete: if isVerifiedUser()
+        && isValidId(kosId)
+        && existing().ownerUid == request.auth.uid;
+
+      match /rooms/{roomId} {
+        allow get: if isValidId(kosId) && isValidId(roomId);
+        allow list: if isValidId(kosId);
+        allow create: if isVerifiedUser()
+          && isValidId(kosId)
+          && isValidId(roomId)
+          && isValidRoom(incoming(), kosId)
+          && incoming().updatedAt == request.time
+          && getAfter(/databases/$(database)/documents/kos/$(kosId)).data.ownerUid == request.auth.uid;
+        allow update: if isVerifiedUser()
+          && isValidId(kosId)
+          && isValidId(roomId)
+          && isValidRoom(incoming(), kosId)
+          && existing().ownerUid == request.auth.uid
+          && incoming().ownerUid == existing().ownerUid
+          && incoming().kosId == existing().kosId
+          && incoming().updatedAt == request.time
+          && incoming().diff(existing()).affectedKeys().hasOnly([
+            'roomNumber', 'floor', 'priceMonthly', 'status', 'notes', 'updatedAt'
+          ]);
+        allow delete: if isVerifiedUser()
+          && isValidId(kosId)
+          && isValidId(roomId)
+          && existing().ownerUid == request.auth.uid;
+      }
+
+      match /history/{historyId} {
+        allow get: if isValidId(kosId)
+          && isValidId(historyId)
+          && isSignedIn()
+          && existing().ownerUid == request.auth.uid;
+        allow list: if isValidId(kosId)
+          && isSignedIn()
+          && resource.data.ownerUid == request.auth.uid;
+        allow create: if isVerifiedUser()
+          && isValidId(kosId)
+          && isValidId(historyId)
+          && isValidHistory(incoming(), kosId)
+          && incoming().createdAt == request.time
+          && getAfter(/databases/$(database)/documents/kos/$(kosId)).data.ownerUid == request.auth.uid;
+        allow update, delete: if false;
+      }
+    }
+
+    match /surveys/{surveyId} {
+      allow get: if isValidId(surveyId)
+        && isSignedIn()
+        && (existing().seekerUid == request.auth.uid || existing().ownerUid == request.auth.uid);
+      allow list: if isSignedIn()
+        && (resource.data.seekerUid == request.auth.uid || resource.data.ownerUid == request.auth.uid);
+      allow create: if isVerifiedUser()
+        && isValidId(surveyId)
+        && isValidSurvey(incoming())
+        && incoming().seekerUid == request.auth.uid
+        && incoming().status == 'menunggu'
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isVerifiedUser()
+        && isValidId(surveyId)
+        && isValidSurvey(incoming())
+        && incoming().kosId == existing().kosId
+        && incoming().ownerUid == existing().ownerUid
+        && incoming().seekerUid == existing().seekerUid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt'])
+        && existing().status in ['menunggu', 'disetujui']
+        && (
+          (existing().seekerUid == request.auth.uid && incoming().status == 'dibatalkan')
+          ||
+          (existing().ownerUid == request.auth.uid && incoming().status in ['disetujui', 'selesai', 'dibatalkan'])
+        );
+      allow delete: if false;
+    }
+
+    match /favorites/{favoriteId} {
+      allow get: if isValidId(favoriteId)
+        && isSignedIn()
+        && existing().uid == request.auth.uid;
+      allow list: if isSignedIn()
+        && resource.data.uid == request.auth.uid;
+      allow create: if isVerifiedUser()
+        && isValidId(favoriteId)
+        && isValidFavorite(incoming())
+        && incoming().createdAt == request.time;
+      allow update: if false;
+      allow delete: if isSignedIn()
+        && isValidId(favoriteId)
+        && existing().uid == request.auth.uid;
+    }
+  }
+}
